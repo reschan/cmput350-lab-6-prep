@@ -89,15 +89,52 @@ void ZoomApp::updateViewAfterResize() {
     // ====== ====== ======
 
     // Calculate newViewport based on aspect ratios of window and of mWorldSize. Then:
-    // mWorldViewDefault.setViewport(newViewport);
-    // mWorldViewZoomed.setViewport(newViewport);
+
+    std::cout << "Resizing...\n";
+    float windowX = mWindow.getSize().x;
+    float windowY = mWindow.getSize().y;
+
+    float worldRatio = mWorldSize.x / mWorldSize.y;
+    float windowRatio = windowX / windowY;
+
+    float tlX = 0;
+    float tlY = 0;
+    float sizeX = 1;
+    float sizeY = 1;
+    float scalarX = windowX / mWorldSize.x;
+    float scalarY = windowY / mWorldSize.y;
+    float scale = std::min(windowX / mWorldSize.x, windowY / mWorldSize.y);
+
+    sizeY = mWorldSize.y / windowY * scale;
+    sizeX = mWorldSize.x / windowX * scale;
+
+    if (scalarX > scalarY) {
+        tlX = (windowX - (mWorldSize.x * scalarY)) / 2 / windowX; 
+    } else if (scalarX < scalarY) {
+        tlY = (windowY - (mWorldSize.y * scalarX)) / 2 / windowY;
+    }
+    
+    std::cout << tlX << ", " << tlY << "\n";
+    std::cout << sizeX << ", " << sizeY << "\n";
+    sf::FloatRect newViewport({tlX, tlY}, {sizeX, sizeY});
+    mWorldViewDefault.setViewport(newViewport);
+    mWorldViewZoomed.setViewport(newViewport);
 }
 
-// updateZoomView sets the center of mWorldViewZoomed such that the zoomed view would have the
+float linearMap(float x, float xi, float xf, float yi, float yf) {
+    return yi + ((yf - yi) / (xf - xi)) * (x - xi);
+}
+
+sf::Vector2f mapPoint(sf::Vector2f point, sf::View inputWindow, sf::View outputWindow) {
+    return sf::Vector2f(
+        linearMap(point.x, 0, inputWindow.getSize().x, 0, outputWindow.getSize().x),
+        linearMap(point.y, 0, inputWindow.getSize().y, 0, outputWindow.getSize().y));
+}
+    // updateZoomView sets the center of mWorldViewZoomed such that the zoomed view would have the
 // user's cursor pointing to the same thing as when it is unzoomed.
 void ZoomApp::updateZoomView(sf::Vector2i mousePos) {
     // TODO: Implement this method. High-level outline/hints given.
-    // (1) Get position of mouse relative to viewport's top-left in window pixel units.
+    // (1) Get position of mouse relative to viewport's top- left in window pixel units.
     //     Remember that in SFML, viewports' position and size are both given as PERCENTAGES
     //     of the window size.
     // (2) Get position of mouse relative to viewport's top-left as percentage of original
@@ -110,14 +147,49 @@ void ZoomApp::updateZoomView(sf::Vector2i mousePos) {
     //  HINT: Determine the steps to go from the desired center to the top-left of this new
     //        world-space rectangle, then from this top-left to the thing you're pointing at,
     //        using our above computed vars. Then solve the equation for the desired center.
+
+    // transform mouse pos from window coords to worldsize coords
+    
+    float windowX = mWorldSize.x;
+    float windowY = mWorldSize.y;
+
+    float scale = std::min(windowX / mWorldSize.x, windowY / mWorldSize.y);
+    
+    float centerX = mousePos.x;
+    float centerY = mousePos.y;
+
+    if (mousePos.x > windowX / 2) {
+        centerX = mousePos.x - ((0.5 * ((mousePos.x - windowX / 2) / (windowX / 2))) * mWorldViewZoomed.getSize().x);
+    } else if (mousePos.x < windowX / 2) {
+        centerX = mousePos.x + (0.5 * (((windowX / 2) - mousePos.x) / (windowX / 2)) * mWorldViewZoomed.getSize().x);
+    }
+
+    if (mousePos.y > windowY / 2) {
+        centerY = mousePos.y - ((0.5 * ((mousePos.y - windowY / 2) / (windowY / 2))) *
+                                mWorldViewZoomed.getSize().y);
+    } else if (mousePos.y < windowY / 2) {
+        centerY = mousePos.y + (0.5 * (((windowY / 2) - mousePos.y) / (windowY / 2)) *
+                                mWorldViewZoomed.getSize().y);
+    }
+    sf::Vector2f point(centerX, centerY);
+    
+    
+
+
+    mWorldViewZoomed.setCenter(point);
+
+
 }
 
 void ZoomApp::render() {
     mWindow.clear(sf::Color::Black);
     if (!mIsZooming) {
         // TODO: If the user is not zooming in, use the default world view.
+        mWindow.setView(mWorldViewDefault);
     } else {
         // TODO: If the user is zooming in, use the zoomed world view.
+        
+        mWindow.setView(mWorldViewZoomed);
     }
     mWindow.draw(*mWaldoSprite);
     mWindow.display();
